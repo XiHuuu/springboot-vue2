@@ -1,9 +1,11 @@
 server:
+  #ip: 60.205.148.129
+  ip: localhost
   port: 9090
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/springboot-vue2?serverTimezone=GMT%2b8
+    url: jdbc:mysql://${server.ip}:3306/springboot-vue2?serverTimezone=GMT%2b8
     username: root
     password: 123456
   mvc:
@@ -16,3 +18,8 @@ mybatis:
 mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+files:
+  upload:
+    path: D:/ALL/Project/springboot-vue2/files/
+    #path: /home/files/

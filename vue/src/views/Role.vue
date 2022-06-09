@@ -1,9 +1,7 @@
 <template>
   <div>
     <div style="padding: 10px 0">
-      <el-input style="width: 200px" placeholder="请输入名称" suffix-icon="el-icon-search" v-model="username"></el-input>
-      <el-input style="width: 200px" placeholder="请输入邮箱" suffix-icon="el-icon-message" class="ml-5" v-model="email"></el-input>
-      <el-input style="width: 200px" placeholder="请输入地址" suffix-icon="el-icon-location" class="ml-5" v-model="address"></el-input>
+      <el-input style="width: 200px" placeholder="请输入名称" suffix-icon="el-icon-search" v-model="name"></el-input>
       <el-button type="primary" class="ml-5" @click="load">搜索</el-button>
       <el-button type="warning" class="ml-5" @click="reset">重置</el-button>
     </div>
@@ -21,23 +19,17 @@
       >
         <el-button type="danger" slot="reference">批量删除<i class="el-icon-remove-outline ml-5"></i></el-button>
       </el-popconfirm>
-      <el-upload :action="'http://' + serverIp + ':9090/user/import'" :show-file-list="false" accept="xlsx" :on-success="handleExcelImportSuccess" style="display: inline-block">
-      <el-button type="primary" v-if="this.role === 'ROLE_ADMIN'" class="ml-5">导入<i class="el-icon-bottom ml-5"></i></el-button>
-      </el-upload>
-      <el-button type="primary" v-if="this.role === 'ROLE_ADMIN'" @click="exp" class="ml-5">导出<i class="el-icon-top ml-5"></i></el-button>
-    </div>
+  </div>
 
     <el-table :data="tableData" border stripe @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55"></el-table-column>
       <el-table-column prop="id" label="ID" width="80"></el-table-column>
-      <el-table-column prop="username" label="用户名" width="140"></el-table-column>
-      <el-table-column prop="role" label="角色" width="140"></el-table-column>
-      <el-table-column prop="nickname" label="昵称" width="120"></el-table-column>
-      <el-table-column prop="email" label="邮箱"></el-table-column>
-      <el-table-column prop="phone" label="电话"></el-table-column>
-      <el-table-column prop="address" label="地址"></el-table-column>
-      <el-table-column label="操作">
+      <el-table-column prop="name" label="名称" width="140"></el-table-column>
+      <el-table-column prop="flag" label="唯一标识" width="140"></el-table-column>
+      <el-table-column prop="description" label="描述"></el-table-column>
+      <el-table-column label="操作" width="290">
         <template slot-scope="scope">
+          <el-button type="info" @click="selectMenu(scope.row)">分配菜单<i class="el-icon-menu ml-5"></i></el-button>
           <el-button type="success" @click="handleEdit(scope.row)">编辑<i class="el-icon-edit ml-5"></i></el-button>
           <el-popconfirm
               class="ml-5"
@@ -66,32 +58,41 @@
       </el-pagination>
     </div>
 
-    <el-dialog title="用户信息" :visible.sync="dialogFormVisible" width="35%">
-      <el-form label-width="130px" :model="form">
-        <el-form-item label="用户名">
-          <el-input v-model="form.username" autocomplete="off" style="width: 300px"></el-input>
+    <el-dialog title="角色信息" :visible.sync="dialogFormVisible" width="30%" >
+      <el-form label-width="80px" size="small">
+        <el-form-item label="名称">
+          <el-input v-model="form.name" autocomplete="off"></el-input>
         </el-form-item>
-        <el-form-item label="角色">
-          <el-select clearable v-model="form.role" placeholder="请选择角色" style="width: 300px">
-            <el-option v-for="item in roles" :key="item.name" :label="item.name" :value="item.flag"></el-option>
-          </el-select>
+        <el-form-item label="唯一标识">
+          <el-input v-model="form.flag" autocomplete="off"></el-input>
         </el-form-item>
-        <el-form-item label="昵称">
-          <el-input v-model="form.nickname" autocomplete="off" style="width: 300px"></el-input>
-        </el-form-item>
-        <el-form-item label="邮箱">
-          <el-input v-model="form.email" autocomplete="off" style="width: 300px"></el-input>
-        </el-form-item>
-        <el-form-item label="电话">
-          <el-input v-model="form.phone" autocomplete="off" style="width: 300px"></el-input>
-        </el-form-item>
-        <el-form-item label="地址">
-          <el-input v-model="form.address" autocomplete="off" style="width: 300px"></el-input>
+        <el-form-item label="描述">
+          <el-input v-model="form.description" autocomplete="off"></el-input>
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
-        <el-button @click="cancel">取 消</el-button>
+        <el-button @click="dialogFormVisible = false">取 消</el-button>
         <el-button type="primary" @click="save">确 定</el-button>
+      </div>
+    </el-dialog>
+
+    <el-dialog title="菜单分配" :visible.sync="menuDialogVisible" width="30%">
+      <el-tree
+        :props="props"
+        :data="menuData"
+        show-checkbox
+        node-key="id"
+        ref="tree"
+        :default-expanded-keys="expends"
+        :default-checked-keys="checks"
+      >
+      <span class="custom-tree-node" slot-scope="{node,data}">
+        <span><i :class="data.icon"></i>  {{data.name}}</span>
+      </span>
+      </el-tree>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="menuDialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="saveRoleMenu">确 定</el-button>
       </div>
     </el-dialog>
   </div>
@@ -99,55 +100,50 @@
 
 <script>
 import request from "@/utils/request";
-import {serverIp} from "../../public/config";
 
 export default {
-  name: "User",
+  name: "Role",
   data(){
     return{
-      serverIp: serverIp,
       tableData: [],
       total: 0,
       pageNum: 1,
       pageSize: 10,
-      username: "",
-      email: "",
-      address: "",
+      name: "",
       form: {},
+      menuDialogVisible: false,
       multipleSelection: [],
       dialogFormVisible: false,
-      roles: [],
-      role: ''
+      menuData: [],
+      props: {
+        label: 'name'
+      },
+      expends: [],
+      checks: [],
+      roleId: 0,
+      roleFlag: '',
     }
   },
   created() {
     this.load()
-    this.role = localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user")).role : ""
   },
   methods:{
     //分页查询
     load(){
-      request.get("/user/page",{
+      request.get("/role/page",{
         params:{
           pageNum: this.pageNum,
           pageSize: this.pageSize,
-          username: this.username,
-          email: this.email,
-          address: this.address,
+          name: this.name,
         }
       }).then(res=>{
         this.tableData=res.data.records
         this.total=res.data.total
       })
-
-      request.get("/role").then(res=>{
-        this.roles = res.data
-      })
-
     },
     //新增或修改
     save(){
-      request.post("/user",this.form).then(res=>{
+      request.post("/role",this.form).then(res=>{
         if (res.code === '200'){
           this.$message.success("保存成功")
           this.dialogFormVisible=false
@@ -157,9 +153,22 @@ export default {
         }
       })
     },
+    saveRoleMenu(){
+      request.post("/role/roleMenu/"+this.roleId,this.$refs.tree.getCheckedKeys()).then(res=>{
+        if (res.code === '200'){
+          this.$message.success("绑定成功")
+          this.menuDialogVisible = false
+          if(this.roleFlag === 'ROLE_ADMIN'){
+            this.$store.commit("logout")
+          }
+        }else {
+          this.$message.error(res.msg)
+        }
+      })
+    },
     //开启修改弹窗
-    handleEdit(row){
-      this.form=Object.assign({},row)
+    handleEdit(row) {
+      this.form = JSON.parse(JSON.stringify(row))
       this.dialogFormVisible = true
     },
     //弹窗取消
@@ -169,7 +178,7 @@ export default {
     },
     //删除
     del(id){
-      request.delete("/user/"+id).then(res=>{
+      request.delete("/role/"+id).then(res=>{
         if (res.code === '200'){
           this.$message.success("删除成功")
           this.load()
@@ -184,7 +193,7 @@ export default {
     //批量删除
     delBatch(){
       let ids = this.multipleSelection.map(v=>v.id)
-      request.post("/user/del/batch",ids).then(res=>{
+      request.post("/role/del/batch",ids).then(res=>{
         if (res.code === '200'){
           this.$message.success("批量删除成功")
           this.load()
@@ -200,9 +209,7 @@ export default {
     },
     //搜索框重置
     reset(){
-      this.username = ""
-      this.email = ""
-      this.address = ""
+      this.name = ""
       this.load()
     },
     handleSizeChange(pageSize){
@@ -213,15 +220,33 @@ export default {
       this.pageNum = pageNum
       this.load()
     },
-    //导出
-    exp(){
-      window.open('http://' + serverIp + ':9090/user/export')
+    selectMenu(role){
+      this.menuDialogVisible = true
+      this.roleId = role.id
+      this.roleFlag = role.flag
+      //请求菜单数据
+      request.get("/menu").then(res=>{
+        this.menuData=res.data
 
+        //把后台返回的菜单数据处理成id数组
+        this.expends = this.menuData.map(v => v.id)
+      })
+
+      request.get("/role/roleMenu/"+this.roleId).then(res=>{
+        //this.menuDialogVisible = true
+        this.checks=res.data
+
+        request.get("/menu/ids").then(r=>{
+          const ids = r.data
+          ids.forEach(id =>{
+            if (!this.checks.includes(id)){
+              this.$refs.tree.setChecked(id,false)
+            }
+          })
+          this.menuDialogVisible = true
+        })
+      })
     },
-    handleExcelImportSuccess(){
-      this.$message.success("导入成功")
-      this.load()
-    }
   }
 }
 </script>
